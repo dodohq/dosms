@@ -21,3 +21,6 @@ tmp/
 
 # env variables
 .env
+
+# vscode workspace settings
+.vscode/

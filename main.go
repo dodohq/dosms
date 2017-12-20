@@ -17,6 +17,10 @@ func main() {
 		}
 	}
 
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello"))
+	})
+
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen

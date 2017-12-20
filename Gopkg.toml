@@ -22,6 +22,11 @@
 
 required = ["github.com/pilu/fresh"]
 
+[metadata.heroku]
+  root-package = "github.com/dodohq/images-store"
+  go-version = "go1.9"
+  install = ["./..."]
+
 [[constraint]]
   name = "github.com/joho/godotenv"
   version = "1.2.0"
