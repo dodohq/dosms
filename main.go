@@ -41,6 +41,9 @@ func main() {
 	httpRouter.GET("/api/time_slot/:provider_id", getTimeSlotsByProvider)
 	httpRouter.DELETE("/api/time_slot/:id", deleteTimeSlot)
 
+	httpRouter.POST("/api/sms", sendAnSms)
+	httpRouter.POST("/api/sms/reply", respondToSms)
+
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen

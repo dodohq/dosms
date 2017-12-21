@@ -26,7 +26,9 @@ func ReadRequestBody(r *http.Request, i interface{}) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
+
 		decoder := schema.NewDecoder()
+		decoder.IgnoreUnknownKeys(true)
 		if err := decoder.Decode(i, r.PostForm); err != nil {
 			return err
 		}
