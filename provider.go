@@ -9,9 +9,10 @@ import (
 )
 
 type provider struct {
-	ID            int64  `json:"id"`
-	Title         string `json:"title" schema:"title"`
-	ContactNumber string `json:"contact_number" schema:"contact_number"`
+	ID            int64       `json:"id"`
+	Title         string      `json:"title" schema:"title"`
+	ContactNumber string      `json:"contact_number" schema:"contact_number"`
+	Slots         []*timeSlot `json:"slots,omitempty"`
 }
 
 // POST /api/provider
@@ -42,6 +43,15 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	for _, p := range providers {
+		query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+		slots, err := fetchTimeSlots(query, p.ID)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		p.Slots = slots
+	}
 
 	response, _ := json.Marshal(&map[string][]*provider{"providers": providers})
 	RenderJSON(w, response)
@@ -61,14 +71,23 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 
-	response, _ := json.Marshal(&providers[0])
+	p := providers[0]
+	query = `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+	slots, err := fetchTimeSlots(query, p.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	p.Slots = slots
+
+	response, _ := json.Marshal(&p)
 	RenderJSON(w, response)
 }
 
 // DELETE /api/provider/:id
 func deleteProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id, _ := strconv.Atoi(ps.ByName("id"))
-	query := `DELETE FROM providers WHERE id = $1`
+	query := `UPDATE providers SET deleted = TRUE WHERE id = $1`
 	stmt, err := dbConn.Prepare(query)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
