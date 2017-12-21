@@ -33,6 +33,7 @@ func main() {
 	httpRouter = httprouter.New()
 	httpRouter.POST("/api/provider", createNewProvider)
 	httpRouter.GET("/api/provider", getAllProviders)
+	httpRouter.GET("/api/provider/:id", getProviderByID)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {

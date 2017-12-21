@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -43,6 +44,24 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 
 	response, _ := json.Marshal(&map[string][]*provider{"providers": providers})
+	RenderJSON(w, response)
+}
+
+// GET /api/provider/:id
+func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	id, _ := strconv.Atoi(ps.ByName("id"))
+	query := `SELECT id, title, contact_number FROM providers WHERE id = $1 AND deleted <> TRUE LIMIT 1`
+	providers, err := fetch(query, id)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	response, _ := json.Marshal(&providers[0])
 	RenderJSON(w, response)
 }
 
