@@ -35,6 +35,7 @@ func main() {
 	httpRouter.GET("/api/provider", getAllProviders)
 	httpRouter.GET("/api/provider/:id", getProviderByID)
 	httpRouter.DELETE("/api/provider/:id", deleteProvider)
+	httpRouter.POST("/api/time_slot", createNewTimeSlot)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
