@@ -39,6 +39,7 @@ func main() {
 
 	httpRouter.POST("/api/time_slot", createNewTimeSlot)
 	httpRouter.GET("/api/time_slot/:provider_id", getTimeSlotsByProvider)
+	httpRouter.DELETE("/api/time_slot/:id", deleteTimeSlot)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {

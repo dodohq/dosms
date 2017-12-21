@@ -37,14 +37,14 @@ func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 
 // GET /api/provider
 func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	query := `SELECT id, title, contact_number FROM providers WHERE deleted <> TRUE`
+	query := `SELECT id, title, contact_number FROM providers WHERE NOT deleted`
 	providers, err := fetchProviders(query)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	for _, p := range providers {
-		query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+		query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND NOT deleted`
 		slots, err := fetchTimeSlots(query, p.ID)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -60,7 +60,7 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 // GET /api/provider/:id
 func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id, _ := strconv.Atoi(ps.ByName("id"))
-	query := `SELECT id, title, contact_number FROM providers WHERE id = $1 AND deleted <> TRUE LIMIT 1`
+	query := `SELECT id, title, contact_number FROM providers WHERE id = $1 AND NOT deleted LIMIT 1`
 	providers, err := fetchProviders(query, id)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -72,7 +72,7 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	}
 
 	p := providers[0]
-	query = `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+	query = `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND NOT deleted`
 	slots, err := fetchTimeSlots(query, p.ID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

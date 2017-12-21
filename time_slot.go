@@ -42,7 +42,7 @@ func createNewTimeSlot(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 // GET /api/time_slot/:provider_id
 func getTimeSlotsByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
-	query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+	query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND NOT deleted`
 	slots, err := fetchTimeSlots(query, providerID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -50,6 +50,36 @@ func getTimeSlotsByProvider(w http.ResponseWriter, r *http.Request, ps httproute
 	}
 
 	response, _ := json.Marshal(&map[string][]*timeSlot{"slots": slots})
+	RenderJSON(w, response)
+}
+
+// DELETE /api/time_slot/:id
+func deleteTimeSlot(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	ID, _ := strconv.Atoi(ps.ByName("id"))
+	query := `UPDATE time_slots SET deleted = TRUE WHERE id = $1`
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	res, err := stmt.Exec(ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if rowsAffected <= 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	response, _ := json.Marshal(&map[string]string{})
 	RenderJSON(w, response)
 }
 
