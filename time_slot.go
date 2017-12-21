@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -36,4 +37,39 @@ func createNewTimeSlot(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 
 	response, _ := json.Marshal(&map[string]int64{"id": id})
 	RenderJSON(w, response)
+}
+
+// GET /api/time_slot/:provider_id
+func getTimeSlotsByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
+	query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND deleted <> TRUE`
+	slots, err := fetchTimeSlots(query, providerID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	response, _ := json.Marshal(&map[string][]*timeSlot{"slots": slots})
+	RenderJSON(w, response)
+}
+
+func fetchTimeSlots(query string, args ...interface{}) ([]*timeSlot, error) {
+	rows, err := dbConn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]*timeSlot, 0)
+	for rows.Next() {
+		s := new(timeSlot)
+		err = rows.Scan(&s.ID, &s.StartTime, &s.EndTime, &s.ProviderID)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, s)
+	}
+
+	return results, nil
 }

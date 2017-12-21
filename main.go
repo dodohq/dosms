@@ -31,11 +31,14 @@ func main() {
 	defer conn.Close()
 
 	httpRouter = httprouter.New()
+
 	httpRouter.POST("/api/provider", createNewProvider)
 	httpRouter.GET("/api/provider", getAllProviders)
 	httpRouter.GET("/api/provider/:id", getProviderByID)
 	httpRouter.DELETE("/api/provider/:id", deleteProvider)
+
 	httpRouter.POST("/api/time_slot", createNewTimeSlot)
+	httpRouter.GET("/api/time_slot/:provider_id", getTimeSlotsByProvider)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
