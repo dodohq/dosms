@@ -21,6 +21,7 @@ dev:
 	GO_ENV=development fresh
 
 build_image:
-	go build -o dosms.out
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-s" -a -installsuffix cgo -o dosms.out .
 	docker system prune
+	docker build -t dosms .
 	
