@@ -20,13 +20,14 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-required = ["github.com/pilu/fresh"]
-
-[metadata.heroku]
-  root-package = "github.com/dodohq/images-store"
-  go-version = "go1.9"
-  install = ["./..."]
-
 [[constraint]]
   name = "github.com/joho/godotenv"
   version = "1.2.0"
+
+[[constraint]]
+  name = "github.com/julienschmidt/httprouter"
+  version = "1.1.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/lib/pq"

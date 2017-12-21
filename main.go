@@ -1,13 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/julienschmidt/httprouter"
+	_ "github.com/lib/pq"
 )
+
+var dbConn *sql.DB
+var httpRouter *httprouter.Router
 
 func main() {
 	isDevEnv := os.Getenv("GO_ENV") == "development"
@@ -17,14 +23,20 @@ func main() {
 		}
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello"))
-	})
+	conn, err := sql.Open("postgres", os.Getenv("DB"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbConn = conn
+	defer conn.Close()
+
+	httpRouter = httprouter.New()
+	httpRouter.POST("/api/provider", createNewProvider)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen
 	}
 	fmt.Println("Starting Server on " + whereToListen)
-	log.Fatal(http.ListenAndServe(whereToListen, nil))
+	log.Fatal(http.ListenAndServe(whereToListen, httpRouter))
 }
