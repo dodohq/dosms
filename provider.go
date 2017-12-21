@@ -15,7 +15,6 @@ type provider struct {
 
 // POST /api/provider
 func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
 	p := provider{}
 	if err := ReadRequestBody(r, &p); err != nil {
 		http.Error(w, err.Error(), 400)
@@ -32,4 +31,37 @@ func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 
 	response, _ := json.Marshal(&map[string]int64{"id": id})
 	RenderJSON(w, response)
+}
+
+// GET /api/provider
+func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	query := `SELECT id, title, contact_number FROM providers WHERE deleted <> TRUE`
+	providers, err := fetch(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	response, _ := json.Marshal(&map[string][]*provider{"providers": providers})
+	RenderJSON(w, response)
+}
+
+func fetch(query string, args ...interface{}) ([]*provider, error) {
+	rows, err := dbConn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]*provider, 0)
+	for rows.Next() {
+		t := new(provider)
+		err = rows.Scan(&t.ID, &t.Title, &t.ContactNumber)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, t)
+	}
+
+	return results, nil
 }
