@@ -37,7 +37,7 @@ func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 // GET /api/provider
 func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	query := `SELECT id, title, contact_number FROM providers WHERE deleted <> TRUE`
-	providers, err := fetch(query)
+	providers, err := fetchProviders(query)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -51,7 +51,7 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	id, _ := strconv.Atoi(ps.ByName("id"))
 	query := `SELECT id, title, contact_number FROM providers WHERE id = $1 AND deleted <> TRUE LIMIT 1`
-	providers, err := fetch(query, id)
+	providers, err := fetchProviders(query, id)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -65,7 +65,37 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	RenderJSON(w, response)
 }
 
-func fetch(query string, args ...interface{}) ([]*provider, error) {
+// DELETE /api/provider/:id
+func deleteProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	id, _ := strconv.Atoi(ps.ByName("id"))
+	query := `DELETE FROM providers WHERE id = $1`
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	res, err := stmt.Exec(id)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if rowsAffected <= 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	response, _ := json.Marshal(&map[string]string{})
+	RenderJSON(w, response)
+}
+
+func fetchProviders(query string, args ...interface{}) ([]*provider, error) {
 	rows, err := dbConn.Query(query, args...)
 	if err != nil {
 		return nil, err

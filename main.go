@@ -34,6 +34,7 @@ func main() {
 	httpRouter.POST("/api/provider", createNewProvider)
 	httpRouter.GET("/api/provider", getAllProviders)
 	httpRouter.GET("/api/provider/:id", getProviderByID)
+	httpRouter.DELETE("/api/provider/:id", deleteProvider)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
