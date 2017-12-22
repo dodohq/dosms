@@ -51,6 +51,7 @@ func main() {
 
 	httpRouter.POST("/api/choice", createNewChoice)
 	httpRouter.GET("/api/choice/:order_id", getChoicesByOrder)
+	httpRouter.DELETE("/api/choice/:order_id/:time_slot_id", deleteChoice)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {

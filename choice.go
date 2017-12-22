@@ -69,6 +69,37 @@ func getChoicesByOrder(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	RenderJSON(w, map[string][]*choice{"choices": choices})
 }
 
+// DELETE /api/choice/:order_id/:time_slot_id
+func deleteChoice(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	orderID, _ := strconv.Atoi(ps.ByName("order_id"))
+	timeSlotID, _ := strconv.Atoi(ps.ByName("time_slot_id"))
+
+	query := `UPDATE choices SET deleted = TRUE WHERE order_id = $1 AND time_slot_id = $2`
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	res, err := stmt.Exec(orderID, timeSlotID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if rowsAffected <= 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	RenderJSON(w, map[string]string{})
+}
+
 func fetchChoices(query string, args ...interface{}) ([]*choice, error) {
 	rows, err := dbConn.Query(query, args...)
 	if err != nil {
