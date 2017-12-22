@@ -15,7 +15,7 @@ db_make:
 	migrate create -ext sql -dir migrations $(NAME)
 
 db_rollback:
-	migrate -database $(DB) -path migrations/ down
+	migrate -database $(DB) -path migrations/ down 1
 
 dev:
 	GO_ENV=development fresh
