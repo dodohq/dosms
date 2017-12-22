@@ -49,6 +49,8 @@ func main() {
 	httpRouter.GET("/api/order/:provider_id", getOrdersByProvider)
 	httpRouter.DELETE("/api/order/:id", deleteOrder)
 
+	httpRouter.POST("/api/choice", createNewChoice)
+
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen
