@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -12,7 +11,7 @@ type provider struct {
 	ID            int64       `json:"id"`
 	Title         string      `json:"title" schema:"title"`
 	ContactNumber string      `json:"contact_number" schema:"contact_number"`
-	Slots         []*timeSlot `json:"slots,omitempty"`
+	Slots         []*timeSlot `json:"slots"`
 }
 
 // POST /api/provider
@@ -31,8 +30,7 @@ func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		return
 	}
 
-	response, _ := json.Marshal(&map[string]int64{"id": id})
-	RenderJSON(w, response)
+	RenderJSON(w, &map[string]int64{"id": id})
 }
 
 // GET /api/provider
@@ -53,8 +51,8 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		p.Slots = slots
 	}
 
-	response, _ := json.Marshal(&map[string][]*provider{"providers": providers})
-	RenderJSON(w, response)
+	response := map[string][]*provider{"providers": providers}
+	RenderJSON(w, &response)
 }
 
 // GET /api/provider/:id
@@ -80,8 +78,7 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	}
 	p.Slots = slots
 
-	response, _ := json.Marshal(&p)
-	RenderJSON(w, response)
+	RenderJSON(w, &p)
 }
 
 // DELETE /api/provider/:id
@@ -110,8 +107,7 @@ func deleteProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 
-	response, _ := json.Marshal(&map[string]string{})
-	RenderJSON(w, response)
+	RenderJSON(w, &map[string]string{})
 }
 
 func fetchProviders(query string, args ...interface{}) ([]*provider, error) {

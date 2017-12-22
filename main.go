@@ -44,6 +44,8 @@ func main() {
 	httpRouter.POST("/api/sms", sendAnSms)
 	httpRouter.POST("/api/sms/reply", respondToSms)
 
+	httpRouter.POST("/api/order", createNewOrder)
+
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen

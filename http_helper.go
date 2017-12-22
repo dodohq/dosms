@@ -14,7 +14,12 @@ import (
 )
 
 // RenderJSON return json object in the http response
-func RenderJSON(w http.ResponseWriter, response []byte) {
+func RenderJSON(w http.ResponseWriter, objPtr interface{}) {
+	response, err := json.Marshal(objPtr)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
 }
@@ -52,7 +57,7 @@ func ReadRequestBody(r *http.Request, i interface{}) error {
 }
 
 // ReadFileUpload process csv upload and return the uploaded destination
-func ReadFIleUpload(r *http.Request, fileFieldName string) (string, error) {
+func ReadFileUpload(r *http.Request, fileFieldName string) (string, error) {
 	file, _, err := r.FormFile(fileFieldName)
 	defer file.Close()
 	if err != nil {
