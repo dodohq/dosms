@@ -41,7 +41,8 @@ BEGIN
   WHERE provider_id = NEW.id;
   UPDATE orders 
   SET deleted = NEW.deleted
-  WHERE provider_id = NEW.id;RETURN NEW;
+  WHERE provider_id = NEW.id;
+  RETURN NEW;
 END;
 $BODY$
 LANGUAGE plpgsql;
@@ -56,7 +57,8 @@ $BODY$
 BEGIN
   UPDATE choices
   SET deleted = NEW.deleted
-  WHERE time_slot_id = NEW.id;RETURN NEW;
+  WHERE time_slot_id = NEW.id;
+  RETURN NEW;
 END;
 $BODY$
 LANGUAGE plpgsql;
@@ -71,7 +73,8 @@ $BODY$
 BEGIN
   UPDATE choices
   SET deleted = NEW.deleted
-  WHERE orders = NEW.id;RETURN NEW;
+  WHERE order_id = NEW.id;
+  RETURN NEW;
 END;
 $BODY$
 LANGUAGE plpgsql;

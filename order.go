@@ -47,6 +47,35 @@ func getOrdersByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	RenderJSON(w, map[string][]*order{"orders": orders})
 }
 
+// DELETE /api/order/:id
+func deleteOrder(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	ID, _ := strconv.Atoi(ps.ByName("id"))
+	query := `UPDATE orders SET deleted = TRUE WHERE id = $1`
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	res, err := stmt.Exec(ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if rowsAffected <= 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	RenderJSON(w, map[string]string{})
+}
+
 func fetchOrders(query string, args ...interface{}) ([]*order, error) {
 	rows, err := dbConn.Query(query, args...)
 	if err != nil {
