@@ -8,11 +8,12 @@ import (
 )
 
 type order struct {
-	ID            int64  `json:"id"`
-	CustomerName  string `json:"customer_name" schema:"customer_name"`
-	ContactNumber string `json:"contact_number" schema:"contact_number"`
-	DeliveryDate  string `json:"delivery_date" schema:"delivery_date"`
-	ProviderID    int64  `json:"provider_id" schema:"provider_id"`
+	ID            int64     `json:"id"`
+	CustomerName  string    `json:"customer_name" schema:"customer_name"`
+	ContactNumber string    `json:"contact_number" schema:"contact_number"`
+	DeliveryDate  string    `json:"delivery_date" schema:"delivery_date"`
+	ProviderID    int64     `json:"provider_id" schema:"provider_id"`
+	Choices       []*choice `json:"choices,omitempty"`
 }
 
 // POST /api/order
@@ -23,9 +24,19 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
+	providers, err := fetchProviders(`SELECT id, title, contact_number, reminder_time FROM providers WHERE id = $1 AND NOT deleted`, o.ProviderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Invalid provider", 400)
+		return
+	}
+
 	query := `INSERT INTO orders(customer_name, contact_number, delivery_date, provider_id) VALUES($1, $2, $3, $4) RETURNING id`
 	var ID int64
-	err := dbConn.QueryRow(query, o.CustomerName, o.ContactNumber, o.DeliveryDate, o.ProviderID).Scan(&ID)
+	err = dbConn.QueryRow(query, o.CustomerName, o.ContactNumber, o.DeliveryDate, o.ProviderID).Scan(&ID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -42,6 +53,26 @@ func getOrdersByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.P
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
+	}
+
+	providers, err := fetchProviders(`SELECT id, title, contact_number, reminder_time FROM providers WHERE id = $1 AND NOT deleted`, providerID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
+	for _, o := range orders {
+		query := `SELECT time_slot_id, order_id FROM choices WHERE order_id = $1`
+		choices, err := fetchChoices(query, o.ID)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		o.Choices = choices
 	}
 
 	RenderJSON(w, map[string][]*order{"orders": orders})

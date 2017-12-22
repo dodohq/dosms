@@ -26,9 +26,19 @@ func createNewTimeSlot(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		return
 	}
 
+	providers, err := fetchProviders(`SELECT id, title, contact_number, reminder_time FROM providers WHERE id = $1 AND NOT deleted`, s.ProviderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Invalid provider", 400)
+		return
+	}
+
 	query := `INSERT INTO time_slots(start_time, end_time, provider_id) VALUES($1, $2, $3) RETURNING id`
 	var id int64
-	err := dbConn.QueryRow(query, s.StartTime, s.EndTime, s.ProviderID).Scan(&id)
+	err = dbConn.QueryRow(query, s.StartTime, s.EndTime, s.ProviderID).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -40,6 +50,17 @@ func createNewTimeSlot(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 // GET /api/time_slot/:provider_id
 func getTimeSlotsByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
+
+	providers, err := fetchProviders(`SELECT id, title, contact_number, reminder_time FROM providers WHERE id = $1 AND NOT deleted`, providerID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+
 	query := `SELECT id, start_time, end_time, provider_id FROM time_slots WHERE provider_id = $1 AND NOT deleted`
 	slots, err := fetchTimeSlots(query, providerID)
 	if err != nil {
