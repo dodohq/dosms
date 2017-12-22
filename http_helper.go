@@ -14,8 +14,8 @@ import (
 )
 
 // RenderJSON return json object in the http response
-func RenderJSON(w http.ResponseWriter, objPtr interface{}) {
-	response, err := json.Marshal(objPtr)
+func RenderJSON(w http.ResponseWriter, obj interface{}) {
+	response, err := json.Marshal(&obj)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

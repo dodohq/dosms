@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -35,8 +34,7 @@ func createNewTimeSlot(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		return
 	}
 
-	response, _ := json.Marshal(&map[string]int64{"id": id})
-	RenderJSON(w, response)
+	RenderJSON(w, map[string]int64{"id": id})
 }
 
 // GET /api/time_slot/:provider_id
@@ -49,8 +47,7 @@ func getTimeSlotsByProvider(w http.ResponseWriter, r *http.Request, ps httproute
 		return
 	}
 
-	response, _ := json.Marshal(&map[string][]*timeSlot{"slots": slots})
-	RenderJSON(w, response)
+	RenderJSON(w, map[string][]*timeSlot{"slots": slots})
 }
 
 // DELETE /api/time_slot/:id
@@ -79,8 +76,7 @@ func deleteTimeSlot(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 
-	response, _ := json.Marshal(&map[string]string{})
-	RenderJSON(w, response)
+	RenderJSON(w, map[string]string{})
 }
 
 func fetchTimeSlots(query string, args ...interface{}) ([]*timeSlot, error) {

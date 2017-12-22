@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -30,5 +31,39 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	RenderJSON(w, &map[string]int64{"id": ID})
+	RenderJSON(w, map[string]int64{"id": ID})
+}
+
+// GET /api/order/:provider_id
+func getOrdersByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
+	query := `SELECT id, customer_name, contact_number, delivery_date, provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+	orders, err := fetchOrders(query, providerID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	RenderJSON(w, map[string][]*order{"orders": orders})
+}
+
+func fetchOrders(query string, args ...interface{}) ([]*order, error) {
+	rows, err := dbConn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]*order, 0)
+	for rows.Next() {
+		o := new(order)
+		err = rows.Scan(&o.ID, &o.CustomerName, &o.ContactNumber, &o.DeliveryDate, &o.ProviderID)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, o)
+	}
+
+	return results, nil
 }

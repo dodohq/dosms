@@ -45,6 +45,7 @@ func main() {
 	httpRouter.POST("/api/sms/reply", respondToSms)
 
 	httpRouter.POST("/api/order", createNewOrder)
+	httpRouter.GET("/api/order/:provider_id", getOrdersByProvider)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {

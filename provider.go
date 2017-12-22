@@ -12,6 +12,7 @@ type provider struct {
 	Title         string      `json:"title" schema:"title"`
 	ContactNumber string      `json:"contact_number" schema:"contact_number"`
 	Slots         []*timeSlot `json:"slots"`
+	Orders        []*order    `json:"orders"`
 }
 
 // POST /api/provider
@@ -30,7 +31,7 @@ func createNewProvider(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		return
 	}
 
-	RenderJSON(w, &map[string]int64{"id": id})
+	RenderJSON(w, map[string]int64{"id": id})
 }
 
 // GET /api/provider
@@ -49,10 +50,17 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			return
 		}
 		p.Slots = slots
+
+		query = `SELECT id, customer_name, contact_number, delivery_date, provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+		orders, err := fetchOrders(query, p.ID)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		p.Orders = orders
 	}
 
-	response := map[string][]*provider{"providers": providers}
-	RenderJSON(w, &response)
+	RenderJSON(w, map[string][]*provider{"providers": providers})
 }
 
 // GET /api/provider/:id
@@ -78,7 +86,7 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	}
 	p.Slots = slots
 
-	RenderJSON(w, &p)
+	RenderJSON(w, p)
 }
 
 // DELETE /api/provider/:id
@@ -107,7 +115,7 @@ func deleteProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 		return
 	}
 
-	RenderJSON(w, &map[string]string{})
+	RenderJSON(w, map[string]string{})
 }
 
 func fetchProviders(query string, args ...interface{}) ([]*provider, error) {
