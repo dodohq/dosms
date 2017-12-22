@@ -33,6 +33,7 @@ func main() {
 	httpRouter = httprouter.New()
 
 	httpRouter.POST("/api/provider", createNewProvider)
+	httpRouter.PUT("/api/provider/:id/set_reminder", setProviderReminderTime)
 	httpRouter.GET("/api/provider", getAllProviders)
 	httpRouter.GET("/api/provider/:id", getProviderByID)
 	httpRouter.DELETE("/api/provider/:id", deleteProvider)
