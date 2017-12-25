@@ -88,7 +88,7 @@ func getAllProviders(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 		p.Slots = slots
 
-		query = `SELECT id, customer_name, contact_number, delivery_date, provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+		query = `SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
 		orders, err := fetchOrders(query, p.ID)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -122,7 +122,7 @@ func getProviderByID(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 	p.Slots = slots
-	query = `SELECT id, customer_name, contact_number, delivery_date, provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+	query = `SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
 	orders, err := fetchOrders(query, p.ID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

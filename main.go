@@ -30,6 +30,10 @@ func main() {
 	dbConn = conn
 	defer conn.Close()
 
+	stopSignal := make(chan int)
+	go initCron(stopSignal)
+	defer func() { stopSignal <- 1 }()
+
 	httpRouter = httprouter.New()
 
 	httpRouter.POST("/api/provider", createNewProvider)

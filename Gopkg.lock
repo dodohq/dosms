@@ -25,9 +25,15 @@
   packages = [".","oid"]
   revision = "83612a56d3dd153a94a629cd64925371c9adad78"
 
+[[projects]]
+  name = "github.com/luca-moser/chronos"
+  packages = ["."]
+  revision = "8f9d74edbed3fce0208e039d0305a5e464e1d222"
+  version = "0.1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4aae038713cda0109df307458daed71dc668233247f9ddb53407a89938c58f6f"
+  inputs-digest = "0a51081564b46f989edd2d92505b75f652852da9f9a30d2c68b862a35ee291d2"
   solver-name = "gps-cdcl"
   solver-version = 1

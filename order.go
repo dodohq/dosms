@@ -14,6 +14,7 @@ type order struct {
 	DeliveryDate  string    `json:"delivery_date" schema:"delivery_date"`
 	ProviderID    int64     `json:"provider_id" schema:"provider_id"`
 	Choices       []*choice `json:"choices,omitempty"`
+	Provider      *provider `json:"provider,omitempty"`
 }
 
 // POST /api/order
@@ -34,7 +35,7 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	query := `INSERT INTO orders(customer_name, contact_number, delivery_date, provider_id) VALUES($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO orders(customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id VALUES($1, $2, $3, $4) RETURNING id`
 	var ID int64
 	err = dbConn.QueryRow(query, o.CustomerName, o.ContactNumber, o.DeliveryDate, o.ProviderID).Scan(&ID)
 	if err != nil {
@@ -48,7 +49,7 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 // GET /api/order/:provider_id
 func getOrdersByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
-	query := `SELECT id, customer_name, contact_number, delivery_date, provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+	query := `SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
 	orders, err := fetchOrders(query, providerID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
