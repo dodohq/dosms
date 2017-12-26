@@ -14,6 +14,7 @@ import (
 
 var dbConn *sql.DB
 var httpRouter *httprouter.Router
+var stopSignal = make(chan int)
 
 func main() {
 	isDevEnv := os.Getenv("GO_ENV") == "development"
@@ -30,7 +31,6 @@ func main() {
 	dbConn = conn
 	defer conn.Close()
 
-	stopSignal := make(chan int)
 	go initCron(stopSignal)
 	defer func() { stopSignal <- 1 }()
 
@@ -56,6 +56,8 @@ func main() {
 	httpRouter.POST("/api/choice", createNewChoice)
 	httpRouter.GET("/api/choice/:order_id", getChoicesByOrder)
 	httpRouter.DELETE("/api/choice/:order_id/:time_slot_id", deleteChoice)
+
+	httpRouter.GET("/api/cron/test", trialExecutionCron)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {

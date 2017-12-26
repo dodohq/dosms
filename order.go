@@ -43,6 +43,10 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
+	// launch reminder
+	o.Provider = providers[0]
+	go scheduleReminder(&o, stopSignal)
+
 	RenderJSON(w, map[string]int64{"id": ID})
 }
 

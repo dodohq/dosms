@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/julienschmidt/httprouter"
 
 	"github.com/luca-moser/chronos"
 )
@@ -33,33 +35,68 @@ func initCron(stopSignal <-chan int) {
 	}
 
 	for _, o := range orders {
-		if o.Provider.ReminderTime == "" {
-			continue
-		}
-		datetime, err := generateGoDateFromString(o.DeliveryDate, o.Provider.ReminderTime)
-		datetime.Add(time.Hour * time.Duration(24))
-		if err != nil {
-			log.Fatal("Failed to generate datetime of order ", o.ID)
-		}
-		if datetime.Before(time.Now()) {
-			continue
-		}
-
-		plan := chronos.NewOnceAtDatePlan(datetime)
-		task := chronos.NewScheduledTask(func() {
-			fmt.Println("order ", o.ID)
-		}, plan)
-		defer task.Stop()
-
-		task.Start()
+		go scheduleReminder(o, stopSignal)
 	}
+}
+
+func trialExecutionCron(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	o := &order{
+		ID:            1,
+		CustomerName:  "Stanley",
+		ContactNumber: "+6581489408",
+		DeliveryDate:  time.Now().Add(time.Hour * time.Duration(24)).UTC().Format("2006-01-02"),
+		Provider: &provider{
+			Title:         "Aramex",
+			ContactNumber: "+6587654321",
+			ReminderTime:  time.Now().Add(time.Minute * time.Duration(1)).UTC().Format("15:04"),
+			Slots: []*timeSlot{
+				&timeSlot{StartTime: "13:00", EndTime: "14:00"},
+				&timeSlot{StartTime: "14:00", EndTime: "15:00"},
+				&timeSlot{StartTime: "15:00", EndTime: "16:00"},
+			},
+		},
+	}
+
+	go scheduleReminder(o, stopSignal)
+
+	RenderJSON(w, o)
+}
+
+// scheduleReminder schedule new cron job for an order
+// to be used in a separate goroutine
+// order must have a valid reminder time from its Provider
+// that can be converted from string to integer or in "HH:MM" format.
+// order.DeliveryDate must be in format of 'YYYY-MM-DD'.
+// Both timing is assumed to be in UTC timezonea.
+func scheduleReminder(o *order, stopSignal <-chan int) {
+	if o.Provider.ReminderTime == "" {
+		return
+	}
+
+	datetime, err := generateGoDateFromString(o.DeliveryDate, o.Provider.ReminderTime)
+	if err != nil {
+		log.Fatal("Failed to generate datetime of order", o.ID)
+	}
+	if datetime.Before(time.Now()) {
+		return
+	}
+
+	// send one day before the delivery date
+	datetime = datetime.Add(time.Hour * time.Duration(-24))
+	plan := chronos.NewOnceAtDatePlan(datetime)
+	task := chronos.NewScheduledTask(func() {
+		sendReminderSms(o)
+	}, plan)
+	defer task.Stop()
+
+	task.Start()
 
 	<-stopSignal
 }
 
 // dateStr in format YYYY-MM-DD
-// hourStr is
-func generateGoDateFromString(dateStr, hourStr string) (time.Time, error) {
+// hourStr is format HH or HH:MM
+func generateGoDateFromString(dateStr, hourMinuteStr string) (time.Time, error) {
 	dateArr := strings.Split(dateStr, "-")
 	year, err := strconv.Atoi(dateArr[0])
 	if err != nil {
@@ -103,10 +140,21 @@ func generateGoDateFromString(dateStr, hourStr string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	hour, err := strconv.Atoi(hourStr)
+
+	hourMinuteArr := strings.Split(hourMinuteStr, ":")
+
+	hour, err := strconv.Atoi(hourMinuteArr[0])
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	return time.Date(year, month, date, hour, 0, 0, 0, time.UTC), nil
+	minute := 0
+	if len(hourMinuteArr) >= 2 {
+		minute, err = strconv.Atoi(hourMinuteArr[1])
+		if err != nil {
+			return time.Time{}, err
+		}
+	}
+
+	return time.Date(year, month, date, hour, minute, 0, 0, time.UTC), nil
 }

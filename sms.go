@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -32,6 +34,24 @@ func sendWithTwilio(toNumber string, body string) (*http.Response, error) {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	return client.Do(req)
+}
+
+// sendReminderSms send standard reminder sms the day before delivery
+// order must have a valid reminder time from its Provider
+// that can be converted from string to integer or in "HH:MM" format.
+// order.DeliveryDate must be in format of 'YYYY-MM-DD'.
+// Both timing is assumed to be in UTC timezonea.
+func sendReminderSms(o *order) (*http.Response, error) {
+	bodyStr := "From: " + o.Provider.Title + "\n"
+	bodyStr += "Hello " + o.CustomerName + ", your delivery is scheduled to be delivered tomorrow "
+	bodyStr += time.Now().Add(time.Hour*time.Duration(24)).Format("Mon 2006 Jan 02") + ". "
+	bodyStr += "Please state your available time slots by replying the number beside the time slot. If you’re available for more than one time slot, reply with a space between the numbers. E.g 1 2 4\nIgnore this message if it’s not meant for you.\n\n"
+
+	for idx, s := range o.Provider.Slots {
+		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + "-" + s.EndTime + "\n"
+	}
+
+	return sendWithTwilio(o.ContactNumber, bodyStr)
 }
 
 // POST /api/sms
