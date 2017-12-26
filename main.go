@@ -50,6 +50,7 @@ func main() {
 	httpRouter.POST("/api/sms/reply", respondToSms)
 
 	httpRouter.POST("/api/order", createNewOrder)
+	httpRouter.POST("/api/order/csv_upload", newOrdersFromCsv)
 	httpRouter.GET("/api/order/:provider_id", getOrdersByProvider)
 	httpRouter.DELETE("/api/order/:id", deleteOrder)
 

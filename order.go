@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/csv"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/julienschmidt/httprouter"
@@ -35,7 +37,7 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	query := `INSERT INTO orders(customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id VALUES($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO orders(customer_name, contact_number, delivery_date, provider_id) VALUES($1, $2, $3, $4) RETURNING id`
 	var ID int64
 	err = dbConn.QueryRow(query, o.CustomerName, o.ContactNumber, o.DeliveryDate, o.ProviderID).Scan(&ID)
 	if err != nil {
@@ -48,6 +50,58 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	go scheduleReminder(&o, stopSignal)
 
 	RenderJSON(w, map[string]int64{"id": ID})
+}
+
+// POST /api/order/csv_upload
+func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	filePath, err := ReadFileUpload(r, "orders_csv")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	fileReader, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer fileReader.Close()
+
+	csvReader := csv.NewReader(fileReader)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(records) <= 1 {
+		http.Error(w, "Empty Record", 400)
+		return
+	}
+
+	query := "INSERT INTO orders(customer_name, contact_number, delivery_date, provider_id) VALUES"
+	queryParams := []interface{}{}
+	for i := 1; i < len(records); i++ {
+		qI := i - 1
+		query += "($" + strconv.Itoa(qI*4+1) + ", $" + strconv.Itoa(qI*4+2) + ", $" + strconv.Itoa(qI*4+3) + ", $" + strconv.Itoa(qI*4+4) + ")"
+		if i < len(records)-1 {
+			query += ",\n"
+		}
+
+		queryParams = append(queryParams, records[i][0], records[i][1], records[i][2], records[i][3])
+	}
+
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	_, err = stmt.Exec(queryParams...)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	RenderJSON(w, &map[string]int{})
 }
 
 // GET /api/order/:provider_id
