@@ -39,11 +39,18 @@ func initCron(stopSignal <-chan int) {
 	}
 }
 
-func trialExecutionCron(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func trialExecutionCron(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	queryVals := r.URL.Query()
+	cName := queryVals.Get("customer_name")
+	cNumber := queryVals.Get("contact_number")
+	if cName == "" || cNumber == "" {
+		http.Error(w, "Invalid Customer Info", 400)
+		return
+	}
 	o := &order{
 		ID:            1,
-		CustomerName:  "Stanley",
-		ContactNumber: "+6581489408",
+		CustomerName:  cName,
+		ContactNumber: cNumber,
 		DeliveryDate:  time.Now().Add(time.Hour * time.Duration(24)).UTC().Format("2006-01-02"),
 		Provider: &provider{
 			Title:         "Aramex",
