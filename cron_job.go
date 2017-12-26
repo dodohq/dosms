@@ -84,12 +84,12 @@ func scheduleReminder(o *order, stopSignal <-chan int) {
 	if err != nil {
 		log.Fatal("Failed to generate datetime of order", o.ID)
 	}
-	if datetime.Before(time.Now()) {
-		return
-	}
 
 	// send one day before the delivery date
 	datetime = datetime.Add(time.Hour * time.Duration(-24))
+	if datetime.Before(time.Now()) {
+		return
+	}
 	plan := chronos.NewOnceAtDatePlan(datetime)
 	task := chronos.NewScheduledTask(func() {
 		sendReminderSms(o)

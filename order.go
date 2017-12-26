@@ -45,8 +45,18 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
+	slots, err := fetchTimeSlots(`
+		SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
+		FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
+	`, o.ProviderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
 	// launch reminder
 	o.Provider = providers[0]
+	o.Provider.Slots = slots
 	go scheduleReminder(&o, stopSignal)
 
 	RenderJSON(w, map[string]int64{"id": ID})
