@@ -14,7 +14,7 @@ import (
 )
 
 func initCron(stopSignal <-chan int) {
-	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE NOT deleted`)
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE NOT deleted`)
 	if err != nil {
 		log.Fatal("Failed to query for all orders to initiate cron job")
 		return

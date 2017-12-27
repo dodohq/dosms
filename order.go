@@ -15,6 +15,7 @@ type order struct {
 	ContactNumber string    `json:"contact_number" schema:"contact_number"`
 	DeliveryDate  string    `json:"delivery_date" schema:"delivery_date"`
 	ProviderID    int64     `json:"provider_id" schema:"provider_id"`
+	RetriesCount  int64     `json:"retries_count"`
 	Choices       []*choice `json:"choices,omitempty"`
 	Provider      *provider `json:"provider,omitempty"`
 }
@@ -117,7 +118,7 @@ func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 // GET /api/order/:provider_id
 func getOrdersByProvider(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
-	query := `SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE provider_id = $1 AND NOT deleted`
+	query := `SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE provider_id = $1 AND NOT deleted`
 	orders, err := fetchOrders(query, providerID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -186,7 +187,7 @@ func fetchOrders(query string, args ...interface{}) ([]*order, error) {
 	results := make([]*order, 0)
 	for rows.Next() {
 		o := new(order)
-		err = rows.Scan(&o.ID, &o.CustomerName, &o.ContactNumber, &o.DeliveryDate, &o.ProviderID)
+		err = rows.Scan(&o.ID, &o.CustomerName, &o.ContactNumber, &o.DeliveryDate, &o.ProviderID, &o.RetriesCount)
 		if err != nil {
 			return nil, err
 		}

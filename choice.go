@@ -32,7 +32,7 @@ func createNewChoice(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE id = $1 AND NOT deleted`, c.OrderID)
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE id = $1 AND NOT deleted`, c.OrderID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -121,7 +121,7 @@ func fetchChoices(query string, args ...interface{}) ([]*choice, error) {
 		}
 		c.TimeSlot = slots[0]
 
-		orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE id = $1 AND NOT deleted`, c.OrderID)
+		orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE id = $1 AND NOT deleted`, c.OrderID)
 		if err != nil {
 			return nil, err
 		}

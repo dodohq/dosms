@@ -61,8 +61,6 @@ func sendConfirmationSms(o *order) (*http.Response, error) {
 		bodyStr += c.TimeSlot.StartTime + ":" + c.TimeSlot.EndTime
 		if i < len(o.Choices)-1 {
 			bodyStr += ", "
-		} else {
-			bodyStr += " "
 		}
 	}
 	bodyStr += ". Do note that delivery might sometimes be off schedule due to unforeseen circumstances. Reply ‘WRONG’ if you would like to change your available time slots. Otherwise, thank you for your time."
@@ -71,13 +69,132 @@ func sendConfirmationSms(o *order) (*http.Response, error) {
 }
 
 // sendRetrySms send standard retry sms
-func sendRetrySms(o *order) (*http.Response, error) {
+// order must have Provider populate
+// order.Provider must have Slots populated
+func sendRetrySms(o *order, lastChance bool) (*http.Response, error) {
 	bodyStr := "Please reply the number that represents your available time slot. If you’re available for more than one time slot, reply with a space between the numbers. E.g 1 2 4\n\n"
+	if lastChance {
+		bodyStr = "Please confirm your available time slot. There will be no more changes after this. " + bodyStr
+	}
 	for idx, s := range o.Provider.Slots {
 		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + "-" + s.EndTime + "\n"
 	}
 
 	return sendWithTwilio(o.ContactNumber, bodyStr)
+}
+
+// sendMaxExceededSms send standard sms after max retries made
+// order must have valid ContactNumber field
+func sendMaxExceededSms(o *order) (*http.Response, error) {
+	bodyStr := "You have exceeded the number of changes. Please call +6581489408 to confirm your delivery timings. Thank you."
+	return sendWithTwilio(o.ContactNumber, bodyStr)
+}
+
+func handleChoosingSlots(w http.ResponseWriter, s *sms) {
+	choicesIdxArr := strings.Split(strings.TrimSpace(s.Body), " ")
+	if len(choicesIdxArr) <= 0 {
+		http.Error(w, "No choices made", 400)
+		return
+	}
+
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE contact_number = $1 AND NOT deleted`, s.From)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	} else if len(orders) <= 0 {
+		http.Error(w, "No Order Found", 404)
+		return
+	}
+	o := orders[0]
+	if o.RetriesCount >= 3 {
+		sendMaxExceededSms(o)
+	}
+
+	slots, err := fetchTimeSlots(`
+		SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
+		FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
+	`, o.ProviderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// clear all previously made choices
+	query := `UPDATE choices SET deleted = TRUE WHERE order_id = $1`
+	stmt, err := dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	_, err = stmt.Exec(o.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	noChoiceMade := true
+	for i, slot := range slots {
+		for _, idx := range choicesIdxArr {
+			if strconv.Itoa(i) == idx {
+				noChoiceMade = false
+				query := `INSERT INTO choices(time_slot_id, order_id) VALUES($1, $2) RETURNING time_slot_id`
+				var timeSlotID int64
+				err := dbConn.QueryRow(query, slot.ID, o.ID).Scan(&timeSlotID)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				o.Choices = append(o.Choices, &choice{TimeSlot: slot})
+			}
+		}
+	}
+	if noChoiceMade {
+		http.Error(w, "No choice made", 400)
+		return
+	}
+	query = `UPDATE orders SET retries_count = retries_count + 1 WHERE id = $1`
+	stmt, err = dbConn.Prepare(query)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	_, err = stmt.Exec(o.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	sendConfirmationSms(o)
+}
+
+func handleRetry(w http.ResponseWriter, s *sms) {
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE contact_number = $1 AND NOT deleted`, s.From)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	} else if len(orders) <= 0 {
+		http.Error(w, "No Order Found", 404)
+		return
+	}
+	o := orders[0]
+	if o.RetriesCount >= 3 {
+		sendMaxExceededSms(o)
+	}
+
+	slots, err := fetchTimeSlots(`
+		SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
+		FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
+	`, o.ProviderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	o.Provider = new(provider)
+	o.Provider.Slots = slots
+
+	lastChance := o.RetriesCount == 2
+
+	sendRetrySms(o, lastChance)
 }
 
 // POST /api/sms
@@ -111,71 +228,21 @@ func respondToSms(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	firstCase, err := regexp.Match("^[\\s\\d]+$", []byte(s.Body))
+	choosingSlots, err := regexp.Match("^[\\s\\d]+$", []byte(s.Body))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	if firstCase {
-		choicesIdxArr := strings.Split(strings.TrimSpace(s.Body), " ")
-		if len(choicesIdxArr) <= 0 {
-			http.Error(w, "No choices made", 400)
-			return
-		}
-
-		orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id FROM orders WHERE contact_number = $1 AND NOT deleted`, s.From)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		} else if len(orders) <= 0 {
-			http.Error(w, "No Order Found", 404)
-			return
-		}
-		o := orders[0]
-
-		slots, err := fetchTimeSlots(`
-			SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
-			FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
-		`, o.ProviderID)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		// clear all previously made choices
-		query := `UPDATE choices SET deleted = TRUE WHERE order_id = $1`
-		stmt, err := dbConn.Prepare(query)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		_, err = stmt.Exec(o.ID)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		noChoiceMade := true
-		for i, slot := range slots {
-			for _, idx := range choicesIdxArr {
-				if strconv.Itoa(i) == idx {
-					noChoiceMade = false
-					query := `INSERT INTO choices(time_slot_id, order_id) VALUES($1, $2) RETURNING time_slot_id`
-					var timeSlotID int64
-					err := dbConn.QueryRow(query, slot.ID, o.ID).Scan(&timeSlotID)
-					if err != nil {
-						http.Error(w, err.Error(), 500)
-						return
-					}
-					o.Choices = append(o.Choices, &choice{TimeSlot: slot})
-				}
-			}
-		}
-		if noChoiceMade {
-			http.Error(w, "No choice made", 400)
-			return
-		}
-
-		sendConfirmationSms(o)
+	if choosingSlots {
+		handleChoosingSlots(w, &s)
+		return
 	}
+
+	retrying := strings.ToUpper(s.Body) == "WRONG"
+	if retrying {
+		handleRetry(w, &s)
+		return
+	}
+
+	http.Error(w, "Invalid SMS Reply", 400)
 }
