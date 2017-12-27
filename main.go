@@ -61,7 +61,7 @@ func main() {
 
 	httpRouter.GET("/api/cron/test", trialExecutionCron)
 
-	routerWithCors := cors.Default().Handler(httpRouter)
+	routerWithCors := cors.AllowAll().Handler(httpRouter)
 
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
