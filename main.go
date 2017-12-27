@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
+	"github.com/rs/cors"
 )
 
 var dbConn *sql.DB
@@ -60,10 +61,12 @@ func main() {
 
 	httpRouter.GET("/api/cron/test", trialExecutionCron)
 
+	routerWithCors := cors.Default().Handler(httpRouter)
+
 	whereToListen := ":" + os.Getenv("PORT")
 	if isDevEnv {
 		whereToListen = "localhost" + whereToListen
 	}
 	fmt.Println("Starting Server on " + whereToListen)
-	log.Fatal(http.ListenAndServe(whereToListen, httpRouter))
+	log.Fatal(http.ListenAndServe(whereToListen, routerWithCors))
 }
