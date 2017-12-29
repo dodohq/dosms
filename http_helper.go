@@ -59,10 +59,10 @@ func ReadRequestBody(r *http.Request, i interface{}) error {
 // ReadFileUpload process csv upload and return the uploaded destination
 func ReadFileUpload(r *http.Request, fileFieldName string) (string, error) {
 	file, _, err := r.FormFile(fileFieldName)
-	defer file.Close()
 	if err != nil {
 		return "", err
 	}
+	defer file.Close()
 
 	filePath := "./tmp/" + strconv.FormatInt(time.Now().Unix(), 10)
 	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
