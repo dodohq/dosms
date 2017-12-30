@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"log"
@@ -16,6 +18,17 @@ import (
 var dbConn *sql.DB
 var httpRouter *httprouter.Router
 var stopSignal = make(chan int)
+var httpsClient *http.Client
+
+func init() {
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(pemCerts)
+	httpsClient = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: pool},
+		},
+	}
+}
 
 func main() {
 	isDevEnv := os.Getenv("GO_ENV") == "development"

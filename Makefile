@@ -20,7 +20,9 @@ db_rollback:
 dev:
 	GO_ENV=development fresh
 
-build_image:
+build:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags "-s" -a -installsuffix cgo -o dosms.out .
+
+build_image: build
 	docker build -t dosms .
 	

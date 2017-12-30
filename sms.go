@@ -27,13 +27,14 @@ func sendWithTwilio(toNumber string, body string) (*http.Response, error) {
 	msgData.Set("Body", body)
 	msgDataReader := *strings.NewReader(msgData.Encode())
 
-	client := &http.Client{}
-	req, _ := http.NewRequest("POST", urlStr, &msgDataReader)
+	req, err := http.NewRequest("POST", urlStr, &msgDataReader)
+	if err != nil {
+		return nil, err
+	}
 	req.SetBasicAuth(os.Getenv("TWILIO_SID"), os.Getenv("TWILIO_TOKEN"))
-	// req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	return client.Do(req)
+	return httpsClient.Do(req)
 }
 
 // sendReminderSms send standard reminder sms the day before delivery
