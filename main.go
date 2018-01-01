@@ -73,6 +73,7 @@ func main() {
 	httpRouter.DELETE("/api/choice/:order_id/:time_slot_id", deleteChoice)
 
 	httpRouter.GET("/api/cron/test", trialExecutionCron)
+	httpRouter.GET("/api/cron/trigger/:order_id", trialTriggerReminder)
 
 	routerWithCors := cors.AllowAll().Handler(httpRouter)
 

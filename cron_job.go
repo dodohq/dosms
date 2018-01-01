@@ -39,6 +39,7 @@ func initCron(stopSignal <-chan int) {
 	}
 }
 
+// GET /api/cron/test?customer_name=&contact_number=
 func trialExecutionCron(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	queryVals := r.URL.Query()
 	cName := queryVals.Get("customer_name")
@@ -57,9 +58,9 @@ func trialExecutionCron(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 			ContactNumber: "+6587654321",
 			ReminderTime:  time.Now().Add(time.Minute * time.Duration(1)).UTC().Format("15:04"),
 			Slots: []*timeSlot{
-				&timeSlot{StartTime: "13:00", EndTime: "14:00"},
-				&timeSlot{StartTime: "14:00", EndTime: "15:00"},
-				&timeSlot{StartTime: "15:00", EndTime: "16:00"},
+				&timeSlot{StartTime: "13", EndTime: "14"},
+				&timeSlot{StartTime: "14", EndTime: "15"},
+				&timeSlot{StartTime: "15", EndTime: "16"},
 			},
 		},
 	}
@@ -67,6 +68,55 @@ func trialExecutionCron(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	go scheduleReminder(o, stopSignal)
 
 	RenderJSON(w, o)
+}
+
+// GET /api/cron/trigger/:order_id
+func trialTriggerReminder(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	orderID, _ := strconv.Atoi(ps.ByName("order_id"))
+
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, delivery_date, provider_id, retries_count FROM orders WHERE id = $1 AND NOT deleted`, orderID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(orders) <= 0 {
+		http.Error(w, "Not Found", 404)
+		return
+	}
+	currOrder := orders[0]
+
+	providers, err := fetchProviders(`
+		SELECT id, title, contact_number, EXTRACT(HOUR FROM timezone('UTC', reminder_time))
+		FROM providers WHERE id = $1 AND NOT deleted`,
+		currOrder.ProviderID,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Invalid provider", 400)
+		return
+	}
+	currProvider := providers[0]
+
+	slots, err := fetchTimeSlots(`
+		SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
+		FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
+	`, currProvider.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	currProvider.Slots = slots
+
+	currOrder.DeliveryDate = time.Now().Add(time.Hour * time.Duration(24)).UTC().Format("2006-01-02")
+	currProvider.ReminderTime = time.Now().Add(time.Minute * time.Duration(1)).UTC().Format("15:04")
+	currOrder.Provider = currProvider
+
+	go scheduleReminder(currOrder, stopSignal)
+
+	RenderJSON(w, currOrder)
 }
 
 // scheduleReminder schedule new cron job for an order

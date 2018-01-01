@@ -47,7 +47,7 @@ func sendReminderSms(o *order) (*http.Response, error) {
 	bodyStr += "Please state your available time slots by replying the number beside the time slot. If you’re available for more than one time slot, reply with a space between the numbers. E.g 1 2 4\nIgnore this message if it’s not meant for you.\n\n"
 
 	for idx, s := range o.Provider.Slots {
-		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + "-" + s.EndTime + "\n"
+		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + ":00" + "-" + s.EndTime + ":00" + "\n"
 	}
 
 	return sendWithTwilio(o.ContactNumber, bodyStr)
@@ -59,7 +59,7 @@ func sendReminderSms(o *order) (*http.Response, error) {
 func sendConfirmationSms(o *order) (*http.Response, error) {
 	bodyStr := "Thank you " + o.CustomerName + ". The courier will be coming during your available time slots: "
 	for i, c := range o.Choices {
-		bodyStr += c.TimeSlot.StartTime + ":" + c.TimeSlot.EndTime
+		bodyStr += c.TimeSlot.StartTime + ":00" + ":" + c.TimeSlot.EndTime + ":00"
 		if i < len(o.Choices)-1 {
 			bodyStr += ", "
 		}
@@ -78,7 +78,7 @@ func sendRetrySms(o *order, lastChance bool) (*http.Response, error) {
 		bodyStr = "Please confirm your available time slot. There will be no more changes after this. " + bodyStr
 	}
 	for idx, s := range o.Provider.Slots {
-		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + "-" + s.EndTime + "\n"
+		bodyStr += strconv.Itoa(idx) + ": " + s.StartTime + ":00" + "-" + s.EndTime + ":00" + "\n"
 	}
 
 	return sendWithTwilio(o.ContactNumber, bodyStr)
