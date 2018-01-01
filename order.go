@@ -28,7 +28,11 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	providers, err := fetchProviders(`SELECT id, title, contact_number, reminder_time FROM providers WHERE id = $1 AND NOT deleted`, o.ProviderID)
+	providers, err := fetchProviders(`
+		SELECT id, title, contact_number, EXTRACT(HOUR FROM timezone('UTC', reminder_time))
+		FROM providers WHERE id = $1 AND NOT deleted`,
+		o.ProviderID,
+	)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -54,7 +58,17 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	orders, err := fetchOrders(`SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count FROM orders WHERE id = $1 AND NOT deleted`, ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(orders) <= 0 {
+		http.Error(w, "Fail to insert", 500)
+		return
+	}
 
+	o = *orders[0]
 	// launch reminder
 	o.Provider = providers[0]
 	o.Provider.Slots = slots
@@ -63,8 +77,9 @@ func createNewOrder(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	RenderJSON(w, map[string]int64{"id": ID})
 }
 
-// POST /api/order/csv_upload
-func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// POST /api/order/:provider_id/csv_upload
+func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	providerID, _ := strconv.Atoi(ps.ByName("provider_id"))
 	filePath, err := ReadFileUpload(r, "orders_csv")
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -89,6 +104,33 @@ func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 		return
 	}
 
+	providers, err := fetchProviders(`
+		SELECT id, title, contact_number, EXTRACT(HOUR FROM timezone('UTC', reminder_time))
+		FROM providers WHERE id = $1 AND NOT deleted`,
+		providerID,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(providers) == 0 {
+		http.Error(w, "Invalid provider", 400)
+		return
+	}
+	currProvider := providers[0]
+
+	slots, err := fetchTimeSlots(`
+		SELECT id, EXTRACT(HOUR FROM start_time), EXTRACT(HOUR FROM end_time), provider_id
+		FROM time_slots WHERE provider_id = $1 AND NOT deleted ORDER BY start_time ASC
+	`, providerID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	currProvider.Slots = slots
+
+	orders := []*order{}
+
 	query := "INSERT INTO orders(customer_name, contact_number, delivery_date, provider_id) VALUES"
 	queryParams := []interface{}{}
 	for i := 1; i < len(records); i++ {
@@ -98,7 +140,10 @@ func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 			query += ",\n"
 		}
 
-		queryParams = append(queryParams, records[i][0], records[i][1], records[i][2], records[i][3])
+		queryParams = append(queryParams, records[i][0], records[i][1], records[i][2], providerID)
+		orders = append(orders, &order{
+			ContactNumber: records[i][1],
+		})
 	}
 
 	stmt, err := dbConn.Prepare(query)
@@ -110,6 +155,29 @@ func newOrdersFromCsv(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
+	}
+
+	for i, o := range orders {
+		newlyInsertedOrders, err := fetchOrders(`
+			SELECT id, customer_name, contact_number, to_char(delivery_date, 'YYYY-MM-DD'), provider_id, retries_count
+			FROM orders WHERE contact_number = $1 AND NOT deleted`,
+			o.ContactNumber,
+		)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if len(newlyInsertedOrders) <= 0 {
+			http.Error(w, "Fail to insert", 500)
+			return
+		}
+
+		orders[i] = newlyInsertedOrders[0]
+		orders[i].Provider = currProvider
+	}
+
+	for _, o := range orders {
+		go scheduleReminder(o, stopSignal)
 	}
 
 	RenderJSON(w, &map[string]int{})
