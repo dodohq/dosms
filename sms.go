@@ -59,7 +59,7 @@ func sendReminderSms(o *order) (*http.Response, error) {
 func sendConfirmationSms(o *order) (*http.Response, error) {
 	bodyStr := "Thank you " + o.CustomerName + ". The courier will be coming during your available time slots: "
 	for i, c := range o.Choices {
-		bodyStr += c.TimeSlot.StartTime + ":00" + ":" + c.TimeSlot.EndTime + ":00"
+		bodyStr += c.TimeSlot.StartTime + ":00" + "-" + c.TimeSlot.EndTime + ":00"
 		if i < len(o.Choices)-1 {
 			bodyStr += ", "
 		}
@@ -109,6 +109,7 @@ func handleChoosingSlots(w http.ResponseWriter, s *sms) {
 	o := orders[0]
 	if o.RetriesCount >= 3 {
 		sendMaxExceededSms(o)
+		return
 	}
 
 	slots, err := fetchTimeSlots(`
@@ -180,6 +181,7 @@ func handleRetry(w http.ResponseWriter, s *sms) {
 	o := orders[0]
 	if o.RetriesCount >= 3 {
 		sendMaxExceededSms(o)
+		return
 	}
 
 	slots, err := fetchTimeSlots(`
